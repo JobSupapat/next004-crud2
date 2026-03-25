@@ -21,15 +21,12 @@ export const metadata = {
 };
 
 export default async function RootLayout({ children }) {
-
-  //Connection to MongoDBAtlas
-  await mongodbConnect()
+  // Connection to MongoDBAtlas
+  await mongodbConnect();
 
   return (
     <html lang="en">
-      <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased`}
-      >
+      <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
         <div className="w-full">
           <AuthProvider>
             <Navbar />

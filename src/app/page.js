@@ -1,20 +1,35 @@
 "use client";
 import React, { useEffect, useState } from 'react';
-import Hero from '@/components/Hero'; // ส่วน Carousel ที่เราทำไว้
+import { motion } from 'framer-motion';
+import Hero from '@/components/Hero';
 import PropertyCard from '@/components/PropertyCard';
 import SearchBar from '@/components/SearchBar';
+
+const containerVariants = {
+  hidden: { opacity: 0 },
+  visible: {
+    opacity: 1,
+    transition: { staggerChildren: 0.1 },
+  },
+};
+
+const itemVariants = {
+  hidden: { opacity: 0, y: 50 },
+  visible: {
+    opacity: 1,
+    y: 0,
+    transition: { duration: 0.6, ease: "easeOut" }
+  },
+};
 
 export default function HomePage() {
   const [properties, setProperties] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  // --- 1. ฟังก์ชันสำหรับโหลดข้อมูล (รองรับทั้งโหลดปกติและค้นหา) ---
   const fetchProperties = async (searchParams = null) => {
     setLoading(true);
     try {
       let url = '/api/properties';
-
-      // ถ้ามีการส่ง searchParams มา ให้เปลี่ยนไปใช้ API Search
       if (searchParams) {
         const { title, category, serviceType } = searchParams;
         const query = new URLSearchParams({
@@ -24,10 +39,16 @@ export default function HomePage() {
         }).toString();
         url = `/api/search?${query}`;
       }
-
       const res = await fetch(url);
       const data = await res.json();
-      setProperties(data);
+
+      // --- [LOGIC UPGRADE] เรียงลำดับ: เก่าสุดขึ้นก่อน (Ascending) ---
+      // ข้อมูลใหม่สุดจะถูกย้ายไปอยู่ล่างสุดของรายการ
+      const sortedData = data.sort((a, b) =>
+        new Date(a.createdAt) - new Date(b.createdAt)
+      );
+
+      setProperties(sortedData);
     } catch (error) {
       console.error("Fetch failed:", error);
     } finally {
@@ -35,50 +56,35 @@ export default function HomePage() {
     }
   };
 
-  // --- เพิ่มฟังก์ชันจัดการ UI หลังลบ ---
-  const handleDeleteFromList = (deletedId) => {
-    // กรองเอาเฉพาะตัวที่ ID ไม่ตรงกับตัวที่ลบออกไป
-    setProperties(properties.filter(item => item._id !== deletedId));
-  };
-
   useEffect(() => {
-    const fetchProperties = async () => {
-      try {
-        const res = await fetch('/api/properties');
-        const data = await res.json();
-        setProperties(data);
-      } catch (error) {
-        console.error("Failed to fetch:", error);
-      } finally {
-        setLoading(false);
-      }
-    };
     fetchProperties();
   }, []);
 
   return (
-    <main className="min-h-screen bg-gray-50/50">
-      {/* 3. Hero Section (Carousel) */}
+    <main className="min-h-screen bg-gray-50/50 font-anuphan">
       <Hero />
 
-      {/* 2. Search Section - แยกออกมาอิสระ ไม่เกยกัน */}
       <div className="bg-white border-b border-gray-100">
         <SearchBar onSearch={fetchProperties} />
       </div>
 
-      {/* 4. รายการโครงการที่จะขาย/เช่า */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
-        <div className="flex justify-between items-end mb-10">
+        <motion.div
+          initial={{ opacity: 0, y: 30 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true, margin: "-100px" }}
+          className="flex justify-between items-end mb-10"
+        >
           <div>
             <h2 className="text-4xl font-black text-gray-900 italic uppercase tracking-tighter">
               All <span className="text-red-700">Properties</span>
             </h2>
             <div className="h-1.5 w-20 bg-red-700 mt-2"></div>
           </div>
-          <button className="text-red-700 font-bold hover:underline transition-all">
-            ดูทั้งหมด
+          <button className="text-red-700 font-bold hover:underline transition-all uppercase text-sm tracking-widest">
+            View All
           </button>
-        </div>
+        </motion.div>
 
         {loading ? (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8">
@@ -87,20 +93,27 @@ export default function HomePage() {
             ))}
           </div>
         ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8">
+          <motion.div
+            variants={containerVariants}
+            initial="hidden"
+            whileInView="visible"
+            viewport={{ once: true, amount: 0.1 }}
+            className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8"
+          >
             {properties.length > 0 ? (
               properties.map((item) => (
-                <PropertyCard key={item._id} item={item} onDelete={handleDeleteFromList} />
+                <motion.div key={item._id} variants={itemVariants}>
+                  <PropertyCard item={item} onDelete={(id) => setProperties(properties.filter(p => p._id !== id))} />
+                </motion.div>
               ))
             ) : (
-              <p className="col-span-full text-center text-gray-500 py-20">
-                ยังไม่มีข้อมูลทรัพย์สินในขณะนี้
+              <p className="col-span-full text-center text-gray-400 py-20 font-bold uppercase tracking-widest">
+                No Properties Found
               </p>
             )}
-          </div>
+          </motion.div>
         )}
       </div>
     </main>
   );
 }
-

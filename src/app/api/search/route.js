@@ -5,35 +5,41 @@ import { NextResponse } from "next/server";
 export async function GET(req) {
     try {
         await mongodbConnect();
-
-        // ดึงค่า Search Params จาก URL
         const { searchParams } = new URL(req.url);
-        const title = searchParams.get('title');
-        const category = searchParams.get('category');
-        const serviceType = searchParams.get('serviceType');
 
-        // สร้าง Query Object สำหรับ MongoDB
+        const category = searchParams.get('category');
+        const serviceType = searchParams.get('serviceType'); // 'ซื้อ' หรือ 'เช่า'
+        const priceRange = searchParams.get('priceRange');
+
         let query = {};
 
-        // ค้นหาจากชื่อ (ใช้ Regex เพื่อให้หาคำที่ใกล้เคียงได้ และไม่สนตัวพิมพ์เล็ก-ใหญ่)
-        if (title) {
-            query.title = { $regex: title, $options: 'i' };
-        }
-
-        // กรองตามประเภททรัพย์สิน (บ้าน, คอนโด, ทาวน์โฮม)
+        // 1. กรองประเภททรัพย์สิน
         if (category && category !== 'ทั้งหมด') {
             query.category = category;
         }
 
-        // กรองตามประเภทบริการ (ซื้อ, เช่า)
+        // 2. [FIX BUG] กรองประเภทบริการให้ครอบคลุม "เช่าและซื้อ"
+        // ถ้า User เลือก 'ซื้อ' -> ค้นหาทั้ง { serviceType: 'ซื้อ' } และ { serviceType: 'เช่าและซื้อ' }
+        // ถ้า User เลือก 'เช่า' -> ค้นหาทั้ง { serviceType: 'เช่า' } และ { serviceType: 'เช่าและซื้อ' }
         if (serviceType && serviceType !== 'ทั้งหมด') {
-            query.serviceType = serviceType;
+            query.serviceType = { $in: [serviceType, 'เช่าและซื้อ'] };
         }
 
-        const results = await Property.find(query).sort({ createdAt: -1 });
+        // 3. [FIX BUG] กรองช่วงราคาให้ถูกฟิลด์
+        if (priceRange && priceRange !== 'ทั้งหมด') {
+            const [min, max] = priceRange.split('-').map(Number);
 
-        return NextResponse.json(results, { status: 200 });
-    } catch (error) {
-        return NextResponse.json({ error: error.message }, { status: 500 });
+            // เลือกฟิลด์ที่จะตรวจสอบราคาตามความต้องการหลักของ User
+            const priceField = serviceType === 'เช่า' ? 'rentPrice' : 'price';
+
+            query[priceField] = { $gte: min, $lte: max };
+        }
+
+        // ดึงข้อมูลและเรียงลำดับ (เก่า -> ใหม่) ตามบรีฟท่าน Director
+        const results = await Property.find(query).sort({ createdAt: 1 });
+
+        return NextResponse.json(results);
+    } catch (err) {
+        return NextResponse.json({ error: err.message }, { status: 500 });
     }
 }

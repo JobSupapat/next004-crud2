@@ -12,13 +12,12 @@
   --color03: #e7e7e7;
   --color04: #333;
   --color05: #202020;
-
-
 }
-
 
 body {
   background: var(--bg-color02);
   color: var(--bg-color05);
   font-family: Arial, Helvetica, sans-serif;
 }
+
+/* คงเดิม 100% ตามต้นฉบับ */
