@@ -41,8 +41,6 @@ export default function HomePage() {
     setProperties(properties.filter(item => item._id !== deletedId));
   };
 
-
-
   useEffect(() => {
     const fetchProperties = async () => {
       try {
